@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: breast-cancer-detection-api
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: MONGODB_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: breast_cancer_detection
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8000
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend-domain.vercel.app,http://localhost:3000,http://localhost:5173
+      - key: MODEL_VERSION
+        value: 1.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYTHON_VERSION
+        value: 3.9.18
