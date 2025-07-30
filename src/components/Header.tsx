@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, Brain, FileText, Home } from 'lucide-react';
+import { Activity, Brain, FileText, Home, History } from 'lucide-react';
 import { Button } from './ui/button';
 import { ModeToggle } from './ui/mode-toggle';
 
@@ -12,6 +12,7 @@ export const Header: React.FC = () => {
     { path: '/', label: 'Home', icon: Home },
     { path: '/analysis', label: 'Analysis', icon: Brain },
     { path: '/results', label: 'Results', icon: FileText },
+    { path: '/history', label: 'History', icon: History },
   ];
 
   return (

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import tensorflow as tf
@@ -10,14 +10,24 @@ import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import json
 import logging
+import base64
 
 from .models.breast_cancer_model import BreastCancerModel
 from .utils.gradcam import GradCAM
 from .utils.pdf_generator import PDFReportGenerator
 from .utils.image_processor import ImageProcessor
+from .database import connect_to_mongo, close_mongo_connection
+from .services.prediction_service import PredictionService
+from .models.prediction import (
+    PredictionHistoryCreate,
+    PredictionHistoryResponse,
+    PredictionResult,
+    ImageMetadata,
+    ModelInfo
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +59,9 @@ async def startup_event():
     """Initialize models and utilities on startup"""
     global model, grad_cam, pdf_generator, image_processor
     
+    logger.info("Connecting to MongoDB...")
+    await connect_to_mongo()
+    
     logger.info("Initializing breast cancer prediction model...")
     model = BreastCancerModel()
     await model.load_model()
@@ -63,6 +76,12 @@ async def startup_event():
     image_processor = ImageProcessor()
     
     logger.info("Startup complete!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Closing MongoDB connection...")
+    await close_mongo_connection()
 
 @app.get("/")
 async def root():
@@ -81,7 +100,7 @@ async def health_check():
 @app.post("/predict")
 async def predict_breast_cancer(file: UploadFile = File(...)):
     """
-    Predict breast cancer from mammogram image
+    Predict breast cancer from mammogram image and save to history
     """
     try:
         # Validate file type
@@ -101,8 +120,55 @@ async def predict_breast_cancer(file: UploadFile = File(...)):
         # Generate Grad-CAM heatmap
         heatmap = grad_cam.generate_heatmap(processed_image)
         
+        # Save Grad-CAM heatmap
+        gradcam_filename = f"gradcam_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        gradcam_path = f"/tmp/{gradcam_filename}"
+        plt.imsave(gradcam_path, heatmap, cmap='jet')
+        
+        # Convert heatmap to base64 for response
+        plt.figure(figsize=(8, 8))
+        plt.imshow(heatmap, cmap='jet', alpha=0.6)
+        plt.imshow(processed_image.squeeze(), cmap='gray', alpha=0.4)
+        plt.axis('off')
+        plt.tight_layout()
+        
+        # Save overlay image
+        overlay_path = f"/tmp/overlay_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        plt.savefig(overlay_path, bbox_inches='tight', pad_inches=0, dpi=150)
+        plt.close()
+        
+        # Convert overlay to base64
+        with open(overlay_path, "rb") as img_file:
+            overlay_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+        
+        # Create prediction result
+        prediction_result = PredictionResult(
+            probability=float(prediction[0]),
+            classification="Malignant" if prediction[0] > 0.5 else "Benign",
+            confidence=float(abs(prediction[0] - 0.5) * 2)
+        )
+        
+        # Create image metadata
+        image_metadata = ImageMetadata(
+            filename=file.filename or "unknown.jpg",
+            size=f"{image.width}x{image.height}",
+            content_type=file.content_type or "image/jpeg",
+            file_size=len(contents)
+        )
+        
+        # Save to database
+        history_data = PredictionHistoryCreate(
+            prediction=prediction_result,
+            image_metadata=image_metadata,
+            model_info=ModelInfo(),
+            gradcam_path=gradcam_path
+        )
+        
+        saved_history = await PredictionService.create_prediction_history(history_data)
+        
         # Prepare response
         result = {
+            "id": str(saved_history.id),
             "prediction": {
                 "probability": float(prediction[0]),
                 "classification": "Malignant" if prediction[0] > 0.5 else "Benign",
@@ -112,8 +178,15 @@ async def predict_breast_cancer(file: UploadFile = File(...)):
                 "filename": file.filename,
                 "upload_time": datetime.now().isoformat(),
                 "model_version": "1.0.0"
-            }
+            },
+            "gradcam_overlay": overlay_base64
         }
+        
+        # Cleanup temporary files
+        try:
+            os.remove(overlay_path)
+        except:
+            pass
         
         return result
         
@@ -212,6 +285,132 @@ async def generate_gradcam(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Grad-CAM generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Grad-CAM generation failed: {str(e)}")
+
+# Prediction History Endpoints
+
+@app.get("/history", response_model=List[PredictionHistoryResponse])
+async def get_prediction_history(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    classification: Optional[str] = Query(None, regex="^(Benign|Malignant)$"),
+    patient_id: Optional[str] = Query(None)
+):
+    """Get prediction history with optional filters"""
+    try:
+        predictions = await PredictionService.get_prediction_history(
+            limit=limit,
+            offset=offset,
+            classification_filter=classification,
+            patient_id_filter=patient_id
+        )
+        
+        return [
+            PredictionHistoryResponse(
+                id=str(pred.id),
+                prediction=pred.prediction,
+                image_metadata=pred.image_metadata,
+                model_info=pred.model_info,
+                created_at=pred.created_at,
+                updated_at=pred.updated_at,
+                notes=pred.notes,
+                patient_id=pred.patient_id,
+                gradcam_path=pred.gradcam_path
+            )
+            for pred in predictions
+        ]
+    except Exception as e:
+        logger.error(f"Error fetching prediction history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+
+@app.get("/history/{prediction_id}", response_model=PredictionHistoryResponse)
+async def get_prediction_by_id(prediction_id: str):
+    """Get a specific prediction by ID"""
+    try:
+        prediction = await PredictionService.get_prediction_by_id(prediction_id)
+        if not prediction:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+        
+        return PredictionHistoryResponse(
+            id=str(prediction.id),
+            prediction=prediction.prediction,
+            image_metadata=prediction.image_metadata,
+            model_info=prediction.model_info,
+            created_at=prediction.created_at,
+            updated_at=prediction.updated_at,
+            notes=prediction.notes,
+            patient_id=prediction.patient_id,
+            gradcam_path=prediction.gradcam_path
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch prediction: {str(e)}")
+
+@app.put("/history/{prediction_id}/notes")
+async def update_prediction_notes(prediction_id: str, notes: Dict[str, str]):
+    """Update notes for a prediction"""
+    try:
+        updated_prediction = await PredictionService.update_prediction_notes(
+            prediction_id, notes.get("notes", "")
+        )
+        if not updated_prediction:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+        
+        return {"message": "Notes updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating notes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update notes: {str(e)}")
+
+@app.delete("/history/{prediction_id}")
+async def delete_prediction(prediction_id: str):
+    """Delete a prediction history record"""
+    try:
+        success = await PredictionService.delete_prediction(prediction_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+        
+        return {"message": "Prediction deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete prediction: {str(e)}")
+
+@app.get("/statistics")
+async def get_statistics():
+    """Get prediction statistics"""
+    try:
+        stats = await PredictionService.get_statistics()
+        return stats
+    except Exception as e:
+        logger.error(f"Error fetching statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch statistics: {str(e)}")
+
+@app.get("/history/{prediction_id}/gradcam")
+async def get_gradcam_image(prediction_id: str):
+    """Get Grad-CAM heatmap for a specific prediction"""
+    try:
+        prediction = await PredictionService.get_prediction_by_id(prediction_id)
+        if not prediction or not prediction.gradcam_path:
+            raise HTTPException(status_code=404, detail="Grad-CAM image not found")
+        
+        if os.path.exists(prediction.gradcam_path):
+            return FileResponse(
+                prediction.gradcam_path,
+                media_type="image/png",
+                filename=f"gradcam_{prediction_id}.png"
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Grad-CAM image file not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching Grad-CAM image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch Grad-CAM image: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

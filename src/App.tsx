@@ -7,6 +7,7 @@ import { Header } from './components/Header';
 import { HomePage } from './pages/HomePage';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { ResultsPage } from './pages/ResultsPage';
+import { HistoryPage } from './pages/HistoryPage';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/analysis" element={<AnalysisPage />} />
                 <Route path="/results" element={<ResultsPage />} />
+                <Route path="/history" element={<HistoryPage />} />
               </Routes>
             </main>
             <Toaster />
