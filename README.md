@@ -1,241 +1,375 @@
-# Breast Cancer Prediction MVP
+# Breast Cancer Detection AI System
 
-A comprehensive deep learning-based breast cancer prediction system using mammogram images with explainable AI and PDF report generation.
+A comprehensive full-stack web application for breast cancer detection using deep learning. The system analyzes mammogram images using advanced CNN models and provides predictions with Grad-CAM visualizations for model interpretability.
 
-## Features
+## 🏗️ Architecture
 
-- **Deep Learning Analysis**: CNN with ResNet50 architecture and transfer learning
-- **Grad-CAM Visualization**: Interpretable AI with heatmaps showing model attention areas
-- **PDF Report Generation**: Comprehensive medical reports with analysis results
-- **FastAPI Backend**: High-performance API with async processing
-- **React Frontend**: Modern, responsive web interface
-- **Real-time Processing**: Fast image analysis with progress tracking
-
-## Architecture
-
-### Backend (FastAPI)
-- **Model**: ResNet50 with transfer learning for binary classification
-- **Preprocessing**: Image normalization and augmentation
-- **Visualization**: Grad-CAM heatmap generation
-- **Reports**: PDF generation with detailed analysis
-- **API**: RESTful endpoints for prediction, reporting, and visualization
+### Backend (FastAPI + Python)
+- **Deep Learning Models**: Ensemble of ResNet50, DenseNet121, and EfficientNet
+- **Database**: MongoDB for prediction history storage
+- **Visualization**: Grad-CAM heatmaps for model interpretability
+- **API**: RESTful endpoints for predictions, history, and model information
 
 ### Frontend (React + TypeScript)
-- **Upload Interface**: Drag-and-drop file upload with preview
-- **Real-time Analysis**: Progress tracking and results display
-- **Report Download**: PDF and heatmap download functionality
-- **History Management**: Analysis history with export capabilities
+- **UI Framework**: React with TypeScript and Tailwind CSS
+- **Components**: shadcn/ui for modern, accessible components
+- **Features**: Image upload, prediction display, history management, statistics
 
-## Installation
+## 🚀 Features
 
-### Backend Setup
+### Core Functionality
+- **Image Upload & Analysis**: Drag-and-drop mammogram image upload
+- **AI Predictions**: Binary classification (Benign/Malignant) with confidence scores
+- **Grad-CAM Visualization**: Heatmap overlays showing model focus areas
+- **Prediction History**: Complete history with search, filter, and management
+- **Statistics Dashboard**: Comprehensive analytics and performance metrics
 
-1. **Create Python virtual environment**:
+### Advanced Features
+- **Multiple Model Types**: ResNet50, DenseNet121, EfficientNet, and Ensemble
+- **Data Augmentation**: Advanced preprocessing and augmentation pipeline
+- **Model Metrics**: AUC, precision, recall, confusion matrix, classification reports
+- **Export Capabilities**: PDF reports and downloadable heatmaps
+- **Responsive Design**: Mobile-friendly interface
+
+## 📋 Prerequisites
+
+### Backend Requirements
+- Python 3.9+
+- TensorFlow 2.15+
+- MongoDB (local or cloud)
+- 8GB+ RAM (for model training)
+
+### Frontend Requirements
+- Node.js 18+
+- npm or yarn
+- Modern web browser
+
+## 🛠️ Installation & Setup
+
+### 1. Clone Repository
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+git clone <repository-url>
+cd breast-cancer-detection
 ```
 
-2. **Install dependencies**:
+### 2. Backend Setup
+
+#### Install Dependencies
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
-3. **Run the server**:
+#### Environment Configuration
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env with your configuration
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=breast_cancer_detection
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+```
+
+#### Start MongoDB
+```bash
+# Local MongoDB
+mongod
+
+# Or use MongoDB Atlas (cloud)
+# Update MONGODB_URL in .env with your connection string
+```
+
+#### Run Backend Server
 ```bash
 python run_server.py
 ```
 
 The API will be available at `http://localhost:8000`
 
-### Frontend Setup
+### 3. Frontend Setup
 
-1. **Install Node.js dependencies**:
+#### Install Dependencies
 ```bash
+cd frontend  # or root directory if React is in root
 npm install
 ```
 
-2. **Start the development server**:
+#### Environment Configuration
+```bash
+# Create .env.local file
+echo "VITE_API_BASE_URL=http://localhost:8000" > .env.local
+```
+
+#### Start Development Server
 ```bash
 npm run dev
 ```
 
 The frontend will be available at `http://localhost:5173`
 
-## Usage
+## 🤖 Model Training
 
-### 1. Upload Mammogram Image
-- Navigate to the Analysis page
-- Upload a mammogram image (JPEG, PNG, or DICOM)
-- Supported formats: `.jpg`, `.jpeg`, `.png`, `.dcm`
-- Maximum file size: 10MB
+### Quick Start (Synthetic Data)
+```bash
+cd backend
+python train_model.py --model-type ensemble --epochs 10
+```
 
-### 2. AI Analysis
-- Click "Analyze Image" to start the deep learning analysis
-- View real-time progress and results
-- Get classification (Benign/Malignant) with confidence scores
+### Advanced Training Options
+```bash
+# Train specific model type
+python train_model.py --model-type resnet50 --epochs 50 --batch-size 32
 
-### 3. Download Reports
-- **PDF Report**: Comprehensive medical report with analysis results
-- **Grad-CAM Heatmap**: Visual explanation of model decisions
-- **Export History**: CSV export of analysis history
+# Train with custom learning rate
+python train_model.py --model-type densenet121 --learning-rate 0.0001
 
-## API Endpoints
+# Train ensemble model
+python train_model.py --model-type ensemble --epochs 100 --verbose
+```
+
+### Model Types Available
+- **ResNet50**: Deep residual network with 50 layers
+- **DenseNet121**: Densely connected network with 121 layers
+- **EfficientNet**: Efficient scaling of CNN architecture
+- **Ensemble**: Combination of all three models for improved accuracy
+
+## 📊 API Documentation
 
 ### Core Endpoints
 
-- `GET /` - Health check
-- `POST /predict` - Analyze mammogram image
-- `POST /analyze-and-report` - Generate PDF report
-- `POST /gradcam` - Generate Grad-CAM heatmap
+#### Prediction
+```http
+POST /predict
+Content-Type: multipart/form-data
 
-### Example Usage
-
-```bash
-# Analyze image
-curl -X POST "http://localhost:8000/predict" \
-  -F "file=@mammogram.jpg"
-
-# Generate PDF report
-curl -X POST "http://localhost:8000/analyze-and-report" \
-  -F "file=@mammogram.jpg" \
-  -o report.pdf
-
-# Generate Grad-CAM heatmap
-curl -X POST "http://localhost:8000/gradcam" \
-  -F "file=@mammogram.jpg" \
-  -o heatmap.png
+# Upload mammogram image for analysis
+# Returns: prediction, confidence, Grad-CAM overlay
 ```
 
-## Model Information
+#### History Management
+```http
+GET /history                    # Get prediction history
+GET /history/{id}              # Get specific prediction
+PUT /history/{id}/notes        # Update prediction notes
+DELETE /history/{id}           # Delete prediction
+```
 
-### Architecture
-- **Base Model**: ResNet50 pre-trained on ImageNet
-- **Classification Head**: Custom layers for binary classification
-- **Input Size**: 224x224 RGB images
-- **Output**: Binary classification (Benign/Malignant) with confidence
+#### Model Information
+```http
+GET /model/info               # Model architecture and parameters
+GET /model/metrics            # Performance metrics
+GET /model/training-history   # Training history
+GET /model/summary           # Model summary
+```
 
-### Training Details
-- **Transfer Learning**: ResNet50 backbone frozen
-- **Optimizer**: Adam with learning rate 0.001
-- **Loss Function**: Binary cross-entropy
-- **Metrics**: Accuracy, Precision, Recall
+#### Statistics
+```http
+GET /statistics              # Prediction statistics and analytics
+```
 
-### Performance Metrics
-- **Accuracy**: 94.5%
-- **Sensitivity**: 92.1%
-- **Specificity**: 96.3%
-- **Processing Time**: <5 seconds per image
+### Response Examples
 
-## Grad-CAM Visualization
+#### Prediction Response
+```json
+{
+  "id": "64f8a1b2c3d4e5f6g7h8i9j0",
+  "prediction": {
+    "probability": 0.85,
+    "classification": "Malignant",
+    "confidence": 0.70
+  },
+  "metadata": {
+    "filename": "mammogram.jpg",
+    "upload_time": "2024-01-15T10:30:00Z",
+    "model_version": "1.0.0"
+  },
+  "gradcam_overlay": "base64_encoded_image_data"
+}
+```
 
-Gradient-weighted Class Activation Mapping (Grad-CAM) provides visual explanations for model decisions:
+## 🎨 Frontend Components
 
-- **Red/Yellow areas**: High model attention (suspicious regions)
-- **Blue/Green areas**: Low model attention
-- **Interpretability**: Helps identify specific areas of concern
+### Pages
+- **HomePage**: Landing page with application overview
+- **AnalysisPage**: Image upload and prediction interface
+- **HistoryPage**: Prediction history management
+- **ResultsPage**: Detailed results and analytics
 
-## PDF Report Components
+### Key Components
+- **MammogramAnalyzer**: Core analysis component
+- **HistoryTable**: Prediction history display
+- **StatisticsCards**: Analytics dashboard
+- **GradCAMViewer**: Heatmap visualization
 
-Comprehensive medical reports include:
+## 🚀 Deployment
 
-1. **Patient Information**: Filename, analysis date, image metadata
-2. **Analysis Summary**: Classification, probability, confidence scores
-3. **Visual Analysis**: Original image and Grad-CAM heatmap
-4. **Detailed Results**: Metric interpretations and recommendations
-5. **Model Information**: Architecture details and training data
-6. **Medical Disclaimer**: Important safety information
+### Backend Deployment (Render)
 
-## Development
+1. **Create Render Service**
+   - Connect your GitHub repository
+   - Use `backend/render.yaml` configuration
+   - Set environment variables in Render dashboard
 
-### Backend Development
+2. **Environment Variables**
+   ```
+   MONGODB_URL=your_mongodb_connection_string
+   DATABASE_NAME=breast_cancer_detection
+   ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app
+   ```
 
+3. **Deploy**
+   - Push changes to main branch
+   - Render will automatically deploy
+
+### Frontend Deployment (Vercel)
+
+1. **Create Vercel Project**
+   - Import from GitHub
+   - Configure build settings:
+     - Build Command: `npm run build`
+     - Output Directory: `dist`
+
+2. **Environment Variables**
+   ```
+   VITE_API_BASE_URL=https://your-backend-domain.onrender.com
+   ```
+
+3. **Deploy**
+   - Push changes to main branch
+   - Vercel will automatically deploy
+
+### Docker Deployment
+
+#### Backend
 ```bash
-# Run with auto-reload
 cd backend
-python run_server.py
-
-# Run tests
-pytest tests/
-
-# Format code
-black app/
-```
-
-### Frontend Development
-
-```bash
-# Development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-```
-
-## Security Considerations
-
-- **Input Validation**: File type and size restrictions
-- **CORS Configuration**: Secure cross-origin requests
-- **Data Privacy**: No image data stored permanently
-- **Medical Compliance**: Appropriate disclaimers and warnings
-
-## Deployment
-
-### Backend Deployment
-
-```bash
-# Build Docker image
 docker build -t breast-cancer-api .
-
-# Run container
-docker run -p 8000:8000 breast-cancer-api
+docker run -p 8000:8000 -e MONGODB_URL=your_connection_string breast-cancer-api
 ```
 
-### Frontend Deployment
-
+#### Full Stack with Docker Compose
 ```bash
-# Build for production
-npm run build
-
-# Deploy to static hosting
-npm run preview
+docker-compose up -d
 ```
 
-## Important Medical Disclaimer
+## 🧪 Testing
 
-⚠️ **This system is for screening purposes only and should not replace professional medical diagnosis.**
+### Backend Tests
+```bash
+cd backend
+pytest tests/
+```
 
-- Always consult with qualified healthcare professionals for medical decisions
-- This tool is intended to assist healthcare providers in their diagnostic process
-- Results should be interpreted by medical professionals
-- Regular screening and clinical examination remain essential
+### Frontend Tests
+```bash
+npm run test
+```
 
-## Contributing
+### API Testing
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
 
+# Test prediction endpoint
+curl -X POST -F "file=@sample_mammogram.jpg" http://localhost:8000/predict
+```
+
+## 📈 Performance Optimization
+
+### Model Optimization
+- **Transfer Learning**: Pre-trained models fine-tuned on mammogram data
+- **Ensemble Methods**: Combining multiple models for improved accuracy
+- **Data Augmentation**: Rotation, scaling, brightness adjustment
+- **Early Stopping**: Prevent overfitting during training
+
+### Application Optimization
+- **Caching**: Model caching and result caching
+- **Compression**: Image compression for faster uploads
+- **CDN**: Static asset delivery via CDN
+- **Database Indexing**: Optimized MongoDB queries
+
+## 🔒 Security Considerations
+
+### Backend Security
+- **Input Validation**: File type and size validation
+- **CORS Configuration**: Restricted origins
+- **Rate Limiting**: API rate limiting (implement as needed)
+- **Authentication**: Add JWT authentication for production
+
+### Frontend Security
+- **XSS Protection**: Content Security Policy headers
+- **HTTPS**: SSL/TLS encryption
+- **Input Sanitization**: User input validation
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Backend Issues
+```bash
+# Model loading error
+# Solution: Ensure TensorFlow and model files are properly installed
+
+# MongoDB connection error
+# Solution: Check MongoDB service and connection string
+
+# Memory issues during training
+# Solution: Reduce batch size or use smaller model
+python train_model.py --model-type resnet50 --batch-size 16
+```
+
+#### Frontend Issues
+```bash
+# API connection error
+# Solution: Check VITE_API_BASE_URL environment variable
+
+# Build errors
+# Solution: Clear node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Performance Issues
+- **Slow predictions**: Use GPU acceleration if available
+- **High memory usage**: Reduce model complexity or batch size
+- **Database queries**: Add appropriate indexes
+
+## 🤝 Contributing
+
+### Development Workflow
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-## License
+### Code Standards
+- **Backend**: PEP 8 Python style guide
+- **Frontend**: ESLint and Prettier configuration
+- **Documentation**: Clear docstrings and comments
+- **Testing**: Unit tests for new features
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 📄 License
 
-## Support
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-For technical support or questions:
-- Create an issue in the GitHub repository
-- Contact the development team
-- Check the documentation for troubleshooting guides
+## 🙏 Acknowledgments
+
+- **TensorFlow/Keras**: Deep learning framework
+- **FastAPI**: Modern Python web framework
+- **React**: Frontend library
+- **MongoDB**: Database solution
+- **shadcn/ui**: UI component library
+- **Tailwind CSS**: Utility-first CSS framework
+
+## 📞 Support
+
+For support and questions:
+- Create an issue on GitHub
+- Check the documentation
+- Review troubleshooting guide
 
 ---
 
-**Note**: This is a demonstration MVP for educational purposes. For production medical use, additional validation, regulatory approval, and clinical testing would be required.
+**⚠️ Medical Disclaimer**: This application is for educational and research purposes only. It should not be used as a substitute for professional medical diagnosis or treatment. Always consult with qualified healthcare professionals for medical decisions.

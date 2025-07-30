@@ -389,6 +389,64 @@ async def get_statistics():
         logger.error(f"Error fetching statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch statistics: {str(e)}")
 
+@app.get("/model/info")
+async def get_model_info():
+    """Get comprehensive model information"""
+    try:
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        model_info = model.get_model_info()
+        return model_info
+    except Exception as e:
+        logger.error(f"Error fetching model info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch model info: {str(e)}")
+
+@app.get("/model/metrics")
+async def get_model_metrics():
+    """Get model performance metrics"""
+    try:
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        metrics = model.get_model_metrics()
+        if metrics is None:
+            return {"message": "No metrics available. Model may not be trained yet."}
+        
+        return metrics
+    except Exception as e:
+        logger.error(f"Error fetching model metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch model metrics: {str(e)}")
+
+@app.get("/model/training-history")
+async def get_training_history():
+    """Get model training history"""
+    try:
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        history = model.get_training_history()
+        if history is None:
+            return {"message": "No training history available. Model may not be trained yet."}
+        
+        return history
+    except Exception as e:
+        logger.error(f"Error fetching training history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch training history: {str(e)}")
+
+@app.get("/model/summary")
+async def get_model_summary():
+    """Get model architecture summary"""
+    try:
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        summary = model.get_model_summary()
+        return {"summary": summary}
+    except Exception as e:
+        logger.error(f"Error fetching model summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch model summary: {str(e)}")
+
 @app.get("/history/{prediction_id}/gradcam")
 async def get_gradcam_image(prediction_id: str):
     """Get Grad-CAM heatmap for a specific prediction"""
