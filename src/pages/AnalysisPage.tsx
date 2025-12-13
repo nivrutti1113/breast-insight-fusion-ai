@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { toast } from 'sonner';
 
 interface AnalysisResult {
+  id: string;
   prediction: {
     probability: number;
     classification: string;
@@ -21,6 +22,7 @@ interface AnalysisResult {
     upload_time: string;
     model_version: string;
   };
+  gradcam_overlay?: string;
 }
 
 export const AnalysisPage: React.FC = () => {
@@ -28,6 +30,7 @@ export const AnalysisPage: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [progress, setProgress] = useState(0);
+  const [showGradCam, setShowGradCam] = useState(false);
 
   const analysisMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -302,6 +305,36 @@ export const AnalysisPage: React.FC = () => {
                       : 'The analysis suggests the tissue appears benign. Continue regular screening as recommended.'}
                   </AlertDescription>
                 </Alert>
+
+                {/* Grad-CAM Overlay Display */}
+                {analysisResult.gradcam_overlay && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Grad-CAM Heatmap</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowGradCam(!showGradCam)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        {showGradCam ? 'Hide' : 'Show'} Heatmap
+                      </Button>
+                    </div>
+                    
+                    {showGradCam && (
+                      <div className="relative">
+                        <img
+                          src={`data:image/png;base64,${analysisResult.gradcam_overlay}`}
+                          alt="Grad-CAM Heatmap Overlay"
+                          className="w-full max-w-md mx-auto rounded-lg border shadow-sm"
+                        />
+                        <p className="text-sm text-gray-600 mt-2 text-center">
+                          Red areas indicate regions the AI model focused on for its prediction
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Button
